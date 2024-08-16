@@ -1,97 +1,84 @@
 ﻿using JoinFive.Contract;
-using Microsoft.Maui.Controls.Shapes;
 
 namespace JoinFive
 {
     // https://learn.microsoft.com/en-us/dotnet/maui/user-interface/graphics/?view=net-maui-8.0
     public class GraphicsDrawable : IDrawable
     {
-        #region Const
+        #region Consts
 
-        private const float BOARD_MARGIN_TOP = 192;
-        private const float BOARD_MARGIN = 120;
-        private const float BOARD_ELLIPSE_INTERVAL = 24;
+        public const float BOARD_MARGIN_TOP = 192;
+        public const float BOARD_MARGIN = 120;
+        public const float BOARD_ELLIPSE_INTERVAL = 24;
 
-        private const float ELLIPSE_WIDTH = 12;
-        private const float UNCOMMITED_LINE_STROKE_THICKNESS = 8;
-        private const float COMMITED_LINE_STROKE_THICKNESS = 4;
+        public const float ELLIPSE_WIDTH = 12;
+        public const float UNCOMMITED_LINE_STROKE_THICKNESS = 8;
+        public const float COMMITED_LINE_STROKE_THICKNESS = 4;
 
-        private const string ERROR_NOT_ENOUGH_DOTS = "Not enough dots for a new line.";
-        private const string ERROR_NO_NEW_DOT = "One new dot must be part of a new line";
-        private const string ERROR_LINE_TOO_SHORT = "The line is too short";
-        private const string ERROR_LINE_OVERLAPPING = "Overlapping lines";
+        public const string ERROR_NOT_ENOUGH_DOTS = "Not enough dots for a new line.";
+        public const string ERROR_NO_NEW_DOT = "One new dot must be part of a new line";
+        public const string ERROR_LINE_TOO_SHORT = "The line is too short";
+        public const string ERROR_LINE_OVERLAPPING = "Overlapping lines";
 
         #endregion
 
-        #region Locals
-
-        HashSet<BoardLine> _lines = [];
-        HashSet<BoardDot> _boardDots = [];
+        public HashSet<BoardLine> BoardLines { get; set; } = [];
+        public HashSet<BoardDot> BoardDots { get; set; } = [];
 
         // For undo
-        BoardLine? _lastCommittedLine = null;
-        BoardDot? _lastCommittedDot = null;
-
-        #endregion
+        public BoardLine? LastCommittedLine { get; set; }
+        public BoardDot? LastCommittedDot { get; set; }
 
         public PointF StartPoint { get; set; }
         public List<PointF> DragPoints { get; set; } = new List<PointF>();
         public bool IsDrawing { get; set; }
         private BoardLine? _lastLine = null;
-        
-        public string errorMsg
-        {
 
-            get => errorMsg;
-            set
-            {
-                
-            }
-        }
-        public double Score { get; set; }
-        //public event EventHandler ScoreChanged;
-        //protected virtual void OnScoreChanged()
-        //{
-        //    if (ScoreChanged != null)
-        //        ScoreChanged(this, EventArgs.Empty);
-        //}
+        public string ErrorMessage { get; set; } = "";
+        public int Score { get; set; }
 
-        //public int NoOfLines => _lines.Count;
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
+            ErrorMessage = "";
+
             // Draw background 
             canvas.FillColor = Colors.CornflowerBlue;
             canvas.FillRectangle(dirtyRect);
 
+            // Check if last line is valid
             if (!IsDrawing && _lastLine != null)
             {
                 // If ok, add to lines
                 if (SetAndValidateLine(canvas, _lastLine))
-                    _lines.Add(_lastLine);
+                {
+                    BoardLines.Add(_lastLine);
+                    LastCommittedLine = _lastLine;
+                    _lastLine = null;
+                }
             }
 
             // Draw board
             // TODO: Done twice? Just add to dots at init
+            DrawButtons(canvas);
             DrawEmptyDots(canvas, dirtyRect);
             DrawBoard(canvas);
 
             // Need to draw all valid lines and dots every time
-            foreach (var item in _boardDots)
+            foreach (var item in BoardDots)
             {
                 DrawDot(canvas, item, item.IsInitialDot ? Colors.Red : Colors.Green);
             }
 
-            foreach (var item in _lines)
+            foreach (var item in BoardLines)
             {
                 DrawLine(canvas, item);
             }
-            Score = _lines.Count;
-            //OnScoreChanged();
 
-            // Draw new line
+            Score = BoardLines.Count;
+
+            // Draw temp line while dragging
             if (DragPoints?.Count > 0)
             {
-                // Draw temp line while dragging
                 _lastLine = new BoardLine
                 {
                     X1 = StartPoint.X,
@@ -102,6 +89,15 @@ namespace JoinFive
 
                 DrawLine(canvas, _lastLine);
             }
+        }
+
+        private void DrawButtons(ICanvas canvas)
+        {
+            canvas.Font = new Microsoft.Maui.Graphics.Font("Arial");
+            canvas.FontSize = 12;
+            canvas.FontColor = Colors.Black;
+            canvas.DrawString("UNDO", BOARD_ELLIPSE_INTERVAL, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString("CLEAR", BOARD_ELLIPSE_INTERVAL + 60, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
         }
 
         public static void DrawLine(ICanvas canvas, BoardLine? line)
@@ -136,7 +132,7 @@ namespace JoinFive
 
                 if (Math.Abs(line.Y1 - SnapValue(line.Y2)) < 3 * BOARD_ELLIPSE_INTERVAL)
                 {
-                    errorMsg = ERROR_LINE_TOO_SHORT;
+                    ErrorMessage = ERROR_LINE_TOO_SHORT;
                     return false;
                 }
 
@@ -165,7 +161,7 @@ namespace JoinFive
 
                 if (Math.Abs(line.X1 - SnapValue(line.X2)) < 3 * BOARD_ELLIPSE_INTERVAL)
                 {
-                    errorMsg = ERROR_LINE_TOO_SHORT;
+                    ErrorMessage = ERROR_LINE_TOO_SHORT;
                     return false;
                 }
 
@@ -193,7 +189,7 @@ namespace JoinFive
                 if (Math.Abs(line.Y1 - SnapValue(line.Y2)) < 3 * BOARD_ELLIPSE_INTERVAL ||
                     Math.Abs(line.X1 - SnapValue(line.X2)) < 3 * BOARD_ELLIPSE_INTERVAL)
                 {
-                    errorMsg = ERROR_LINE_TOO_SHORT;
+                    ErrorMessage = ERROR_LINE_TOO_SHORT;
                     return false;
                 }
 
@@ -215,7 +211,7 @@ namespace JoinFive
             }
 
             var j = (from np in newDots
-                     join bp in _boardDots
+                     join bp in BoardDots
                      on new { np.X, np.Y } equals new { bp.X, bp.Y } into joined
                      select new
                      {
@@ -226,22 +222,22 @@ namespace JoinFive
 
             if (j.Where(a => a.Hit).Count() < 4)
             {
-                errorMsg = ERROR_NOT_ENOUGH_DOTS;
+                ErrorMessage = ERROR_NOT_ENOUGH_DOTS;
                 return false;
             }
 
             if (j.Where(a => !a.Hit).Count() != 1)
             {
-                errorMsg = ERROR_NO_NEW_DOT;
+                ErrorMessage = ERROR_NO_NEW_DOT;
                 return false;
             }
 
             line.Dots = newDots;
 
             // Check overlapping lines          
-            if (_lines != null && _lines.Any(x => x.Dots.Intersect(newDots).Count() >= 2))
+            if (BoardLines != null && BoardLines.Any(x => x.Dots.Intersect(newDots).Count() >= 2))
             {
-                errorMsg = ERROR_LINE_OVERLAPPING;
+                ErrorMessage = ERROR_LINE_OVERLAPPING;
                 return false;
             }
 
@@ -289,17 +285,10 @@ namespace JoinFive
 
         private void DrawEmptyDots(ICanvas canvas, RectF dirtyRect)
         {
-            for (var x = dirtyRect.Left + BOARD_ELLIPSE_INTERVAL; x < dirtyRect.Right; x += BOARD_ELLIPSE_INTERVAL)
+            for (var x = dirtyRect.Left + BOARD_ELLIPSE_INTERVAL; x < dirtyRect.Right - ELLIPSE_WIDTH; x += BOARD_ELLIPSE_INTERVAL)
             {
-                for (var y = dirtyRect.Top + BOARD_ELLIPSE_INTERVAL; y < dirtyRect.Bottom; y += BOARD_ELLIPSE_INTERVAL)
+                for (var y = dirtyRect.Top + BOARD_ELLIPSE_INTERVAL; y < dirtyRect.Bottom - ELLIPSE_WIDTH; y += BOARD_ELLIPSE_INTERVAL)
                 {
-                    //var ellipse = new Ellipse();
-                    //ellipse.Height = ELLIPSE_WIDTH;
-                    //ellipse.Width = ELLIPSE_WIDTH;
-                    //ellipse.Opacity = 0.2;
-                    //ellipse.Fill = new SolidColorBrush(Colors.LightGray);
-                    //ellipse.Margin = new Thickness(x, y, 0, 0);
-                    //canvas.Children.Add(ellipse);
                     DrawDot(canvas, new BoardDot { X = x, Y = y, IsInitialDot = true }, Colors.LightGray);
                 }
             }
@@ -331,10 +320,10 @@ namespace JoinFive
                 IsInitialDot = isInit,
             };
 
-            _boardDots.Add(dot);
+            BoardDots.Add(dot);
 
             if (!isInit)
-                _lastCommittedDot = dot;
+                LastCommittedDot = dot;
 
             DrawDot(canvas, dot, color);
         }
@@ -345,8 +334,7 @@ namespace JoinFive
 
             if (alpha != null)
                 canvas.Alpha = 0.2F;
-
-            //canvas.StrokeSize = 4;
+            
             canvas.FillEllipse(dot.X, dot.Y, ELLIPSE_WIDTH, ELLIPSE_WIDTH);
         }
 

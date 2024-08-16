@@ -4,85 +4,76 @@
 
     public class JoinFiveView : GraphicsView
     {
-        GraphicsDrawable graphicsDrawable;
-
-        //public int Score
-        //{
-        //    get => (int)GetValue(ScoreProperty);
-        //    set => SetValue(ScoreProperty, value);
-        //}
-
-        //public static readonly BindableProperty ScoreProperty = BindableProperty.Create(nameof(Score), typeof(int), typeof(JoinFiveView), propertyChanged: ScorePropertyChanged);
-        ////    public static readonly DependencyProperty ScoreProperty = DependencyProperty.Register(
-        ////nameof(Score), typeof(double),
-        ////typeof(JoinFiveView)
-        ////);
-
-        //private static void ScorePropertyChanged(BindableObject bindable, object oldValue, object newValue)
-        //{
-        //    if (bindable is not JoinFiveView {Drawable: GraphicsDrawable drawable } view)
-        //    {
-        //        return;
-        //    }
-
-        //    drawable.AnguloFin = (int)newValue;
-        //    view.Invalidate();
-        //}
-
-        //public double Score
-        //{
-        //    get => (double)GetValue(ScoreProperty);
-        //    set => SetValue(ScoreProperty, value);
-        //}
-
-        //public static readonly BindableProperty ScoreProperty = BindableProperty.Create(nameof(Score), typeof(double), typeof(JoinFiveView), propertyChanged: ScorePropertyChanged);
-
-        //private static void ScorePropertyChanged(BindableObject bindable, object oldValue, object newValue)
-        //{
-        //    if (bindable is not JoinFiveView { Drawable: GraphicsDrawable drawable } view)
-        //    {
-        //        return;
-        //    }
-
-        //    drawable.Score = (double)newValue;
-        //    view.Invalidate();
-        //}
+        GraphicsDrawable drawable;
+        public int HiScore { get; set; }
 
         public JoinFiveView()
         {
-            graphicsDrawable = new GraphicsDrawable();
-            Drawable = graphicsDrawable;
+            drawable = new GraphicsDrawable();
+            Drawable = drawable;
             StartInteraction += JoinFiveView_StartInteraction;
             DragInteraction += JoinFiveView_DragInteraction;
             EndInteraction += JoinFiveView_EndInteraction;
-            //graphicsDrawable.ScoreChanged += GraphicsDrawable_ScoreChanged;
         }
 
-        private void GraphicsDrawable_ScoreChanged(object? sender, EventArgs e)
+        public void Undo()
         {
-            //Score = graphicsDrawable.NoOfLines;
-            //Invalidate();
+            if (drawable.LastCommittedDot != null &&
+                !drawable.LastCommittedDot.IsInitialDot &&
+                drawable.LastCommittedLine != null)
+            {
+                drawable.BoardDots.Remove(drawable.LastCommittedDot);
+                drawable.BoardLines.Remove(drawable.LastCommittedLine);
+
+                drawable.LastCommittedDot = null;
+                drawable.LastCommittedLine = null;
+
+                Invalidate();
+            }
+            else
+            {
+                drawable.ErrorMessage = "Nothing to undo";
+            }
+        }
+
+        public void Clear()
+        {
+            if (drawable.Score > HiScore)
+                HiScore = drawable.Score;
+
+            drawable = new GraphicsDrawable();
+            Drawable = drawable;
+            Invalidate();
         }
 
         private void JoinFiveView_EndInteraction(object? sender, TouchEventArgs e)
         {
-            graphicsDrawable.IsDrawing = false;
-            graphicsDrawable.DragPoints.Clear();            
-            Invalidate();
+            if (drawable.StartPoint.Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL && e.Touches[0].Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL)
+            {
+                drawable.IsDrawing = false;
+                drawable.DragPoints.Clear();
+                Invalidate();
+            }
         }
 
         private void JoinFiveView_DragInteraction(object? sender, TouchEventArgs e)
         {
-            graphicsDrawable.DragPoints.Add(e.Touches[0]);
-            Invalidate();
-
+            if (drawable.StartPoint.Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL && e.Touches[0].Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL)
+            {
+                drawable.DragPoints.Add(e.Touches[0]);
+                Invalidate();
+            }
         }
 
         private void JoinFiveView_StartInteraction(object? sender, TouchEventArgs e)
         {
-            graphicsDrawable.IsDrawing = true;
-            graphicsDrawable.StartPoint = e.Touches[0];
-            Invalidate();
+            drawable.StartPoint = e.Touches[0];
+
+            if (e.Touches[0].Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL)
+            {
+                drawable.IsDrawing = true;                
+                Invalidate();
+            }
         }
     }
 }

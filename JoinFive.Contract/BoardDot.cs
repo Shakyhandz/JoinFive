@@ -20,14 +20,8 @@
             return X.Equals(other.X) && Y.Equals(other.Y);
         }
 
-        public override string ToString()
-        {
-            return $"X: {X}, Y: {Y}, initial: {IsInitialDot}";
-        }
-
-        public override int GetHashCode()
-        {
-            return X.GetHashCode() ^ Y.GetHashCode();
-        }
+        public override string ToString() => $"X: {X}, Y: {Y}, initial: {IsInitialDot}";
+        
+        public override int GetHashCode() => X.GetHashCode() ^ Y.GetHashCode();        
     }
 }
