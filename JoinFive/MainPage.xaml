@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:JoinFive"
+             xmlns:shared="clr-namespace:JoinFive.Shared;assembly=JoinFive.Shared"
+             x:Class="JoinFive.MainPage"
+             BackgroundColor="{DynamicResource PageBackgroundColor}">
+    <!--<ContentPage.Resources>
+        <local:GraphicsDrawable x:Key="drawable" />
+    </ContentPage.Resources>-->
+    <ContentPage.BindingContext>
+        <local:JoinFiveView />
+    </ContentPage.BindingContext>
+    <VerticalStackLayout>
+        <!--<Label Text="{Binding AnguloFin}" />-->
+        <!--<GraphicsView x:Name="grView" 
+                      Drawable="{StaticResource drawable}"
+                      HeightRequest="1000"
+                      WidthRequest="1000"
+                      StartInteraction="GraphicsView_StartInteraction"
+                      EndInteraction="GraphicsView_EndInteraction" />-->
+        
+        
+        <local:JoinFiveView HeightRequest="1000" WidthRequest="1000" />
+
+
+    </VerticalStackLayout>
+    
+    <!--<BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <BlazorWebView.RootComponents>
+            <RootComponent Selector="#app" ComponentType="{x:Type shared:Routes}" />
+        </BlazorWebView.RootComponents>
+    </BlazorWebView>-->
+
+</ContentPage>
