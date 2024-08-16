@@ -1,19 +1,57 @@
-﻿namespace JoinFive
+﻿using JoinFive.Contract;
+using System.Text.Json;
+
+namespace JoinFive
 {
     // https://github.com/SyncfusionExamples/Draw-Signature-using-GraphicsView-in-.NET-MAUI/blob/master/2DGraphicsDrawing/2DGraphicsDrawing/SignatureView.cs
 
     public class JoinFiveView : GraphicsView
     {
-        GraphicsDrawable drawable;
-        public int HiScore { get; set; }
+        GraphicsDrawable drawable;        
+        private static readonly string SETTINGS_PATH = Path.Combine(FileSystem.AppDataDirectory, "settings.json");
 
         public JoinFiveView()
         {
             drawable = new GraphicsDrawable();
             Drawable = drawable;
+            var settings = ReadSettings();
+
+            if (settings != null)
+            {
+                drawable.HiScore = settings.HiScore;
+                drawable.BoardLines = settings.CurrentLines;
+                drawable.BoardDots = settings.CurrentDots;
+            }
+
             StartInteraction += JoinFiveView_StartInteraction;
             DragInteraction += JoinFiveView_DragInteraction;
             EndInteraction += JoinFiveView_EndInteraction;
+        }
+
+        private Settings? ReadSettings()
+        {
+            if (File.Exists(SETTINGS_PATH))
+            {
+                var json = File.ReadAllText(SETTINGS_PATH);
+                return JsonSerializer.Deserialize<Settings>(json);
+            }
+
+            return null;
+        }
+
+        private async Task SaveSettings()
+        {
+            // Small delay for rendering to complete for accurate data
+            await Task.Delay(250);
+
+            var settings = new Settings
+            {
+                HiScore = drawable?.HiScore ?? 0,
+                CurrentLines = drawable?.BoardLines ?? [], 
+                CurrentDots = drawable?.BoardDots ?? [],
+            };
+
+            File.WriteAllText(SETTINGS_PATH, JsonSerializer.Serialize(settings));
         }
 
         public void Undo()
@@ -38,11 +76,12 @@
 
         public void Clear()
         {
-            if (drawable.Score > HiScore)
-                HiScore = drawable.Score;
-
+            var highScore = Math.Max(drawable.Score, drawable.HiScore);
+            
             drawable = new GraphicsDrawable();
             Drawable = drawable;
+            drawable.HiScore = highScore;
+            SaveSettings();
             Invalidate();
         }
 
@@ -53,6 +92,7 @@
                 drawable.IsDrawing = false;
                 drawable.DragPoints.Clear();
                 Invalidate();
+                SaveSettings();
             }
         }
 

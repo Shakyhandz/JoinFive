@@ -36,6 +36,7 @@ namespace JoinFive
 
         public string ErrorMessage { get; set; } = "";
         public int Score { get; set; }
+        public int HiScore { get; set; }
 
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
@@ -58,8 +59,7 @@ namespace JoinFive
             }
 
             // Draw board
-            // TODO: Done twice? Just add to dots at init
-            DrawButtons(canvas);
+            // TODO: Done twice? Just add to dots at init            
             DrawEmptyDots(canvas, dirtyRect);
             DrawBoard(canvas);
 
@@ -75,6 +75,7 @@ namespace JoinFive
             }
 
             Score = BoardLines.Count;
+            DrawButtons(canvas);
 
             // Draw temp line while dragging
             if (DragPoints?.Count > 0)
@@ -97,7 +98,9 @@ namespace JoinFive
             canvas.FontSize = 12;
             canvas.FontColor = Colors.Black;
             canvas.DrawString("UNDO", BOARD_ELLIPSE_INTERVAL, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
-            canvas.DrawString("CLEAR", BOARD_ELLIPSE_INTERVAL + 60, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString("CLEAR", BOARD_ELLIPSE_INTERVAL + 60 * 1, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString($"YOUR SCORE: {Score}", BOARD_ELLIPSE_INTERVAL + 60 * 2, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString($"HIGH SCORE: {HiScore}", BOARD_ELLIPSE_INTERVAL + 60 * 4, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
         }
 
         public static void DrawLine(ICanvas canvas, BoardLine? line)
