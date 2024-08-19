@@ -26,6 +26,10 @@
                     {
                         view.Clear();
                     }
+                    else if (145 <= point.X && point.X <= 200)
+                    {
+                        view.SuggestLine();
+                    }
                 }
             }
         }

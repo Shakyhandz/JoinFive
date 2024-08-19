@@ -33,6 +33,7 @@ namespace JoinFive
         public List<PointF> DragPoints { get; set; } = new List<PointF>();
         public bool IsDrawing { get; set; }
         private BoardLine? _lastLine = null;
+        public BoardLine? SuggestedLine { get; set; }
 
         public string ErrorMessage { get; set; } = "";
         public int Score { get; set; }
@@ -90,6 +91,11 @@ namespace JoinFive
 
                 DrawLine(canvas, _lastLine);
             }
+            else if (SuggestedLine != null)
+            {
+                DrawLine(canvas, SuggestedLine, Colors.White);
+                SuggestedLine = null;
+            }
         }
 
         private void DrawButtons(ICanvas canvas)
@@ -99,16 +105,17 @@ namespace JoinFive
             canvas.FontColor = Colors.Black;
             canvas.DrawString("UNDO", BOARD_ELLIPSE_INTERVAL, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
             canvas.DrawString("CLEAR", BOARD_ELLIPSE_INTERVAL + 60 * 1, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
-            canvas.DrawString($"YOUR SCORE: {Score}", BOARD_ELLIPSE_INTERVAL + 60 * 2, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
-            canvas.DrawString($"HIGH SCORE: {HiScore}", BOARD_ELLIPSE_INTERVAL + 60 * 4, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString("SUGGEST", BOARD_ELLIPSE_INTERVAL + 60 * 2, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString($"YOUR SCORE: {Score}", BOARD_ELLIPSE_INTERVAL + 60 * 3.5F, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString($"HIGH SCORE: {HiScore}", BOARD_ELLIPSE_INTERVAL + 60 * 5.5F, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
         }
 
-        public static void DrawLine(ICanvas canvas, BoardLine? line)
+        public static void DrawLine(ICanvas canvas, BoardLine? line, Color? color = null)
         {
             if (line != null)
             {
                 canvas.StrokeSize = 4;
-                canvas.StrokeColor = Colors.Black;
+                canvas.StrokeColor = color ?? Colors.Black;
                 canvas.StrokeLineCap = LineCap.Round;
                 canvas.DrawLine(line.X1, line.Y1, line.X2, line.Y2);
             }
@@ -261,9 +268,156 @@ namespace JoinFive
         } 
         #endregion
 
+        public List<BoardLine> SuggestNextLine()
+        {
+            // Find dots with 4 neighbors, where 0 or 1 has a gap of two 
+            if (/*BoardLines?.Count > 0 &&*/ BoardDots?.Count > 0)
+            {
+                //LineType.Vertical
+                var verticalLines = BoardLines?.Where(x => x.LineType == BoardLineType.Vertical).ToList() ?? [];
+
+                var candidates = BoardDots.Where(d => !verticalLines.Any(l => l.InsideDots.Contains(d)))
+                                          .GroupBy(x => x.X)
+                                          .SelectMany(x =>
+                                          {
+                                              var res = new List<BoardLine>();
+
+                                              var ys = x.Select(y => y.Y).Distinct().OrderBy(y => y).ToList();
+
+                                              for (var i = 0; i < ys.Count; i++)
+                                              {
+                                                  var y1 = ys[i];
+
+                                                  if (i == 0 && ys.Where(y2 => y1 - BOARD_ELLIPSE_INTERVAL <= y2 && y2 <= y1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                  {
+                                                      res.Add(new BoardLine
+                                                      {
+                                                          X1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          X2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          Y1 = y1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                          Y2 = y1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                          Dots = Enumerable.Range(0, 5)
+                                                                           .Select(ix => new BoardDot { X = x.Key, Y = y1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix })
+                                                                           .ToHashSet(),
+                                                      });
+                                                  }
+
+                                                  if (ys.Where(y2 => y1 <= y2 && y2 <= y1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                  {
+                                                      res.Add(new BoardLine
+                                                      {
+                                                          X1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          X2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          Y1 = y1 + ELLIPSE_WIDTH / 2,
+                                                          Y2 = y1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                          Dots = Enumerable.Range(0, 5)
+                                                                           .Select(ix => new BoardDot { X = x.Key, Y = y1 + BOARD_ELLIPSE_INTERVAL * ix })
+                                                                           .ToHashSet(),
+                                                      });
+                                                  }
+                                              }
+
+                                              return res;
+                                          })
+                                          .ToList();
+
+                //LineType.Horizontal
+                var horizontalLines = BoardLines?.Where(x => x.LineType == BoardLineType.Horizontal).ToList() ?? [];
+
+                candidates.AddRange(BoardDots.Where(d => !horizontalLines.Any(l => l.InsideDots.Contains(d)))
+                                          .GroupBy(x => x.Y)
+                                          .SelectMany(x =>
+                                          {
+                                              var res = new List<BoardLine>();
+
+                                              var xs = x.Select(y => y.X).Distinct().OrderBy(y => y).ToList();
+
+                                              for (var i = 0; i < xs.Count; i++)
+                                              {
+                                                  var x1 = xs[i];
+
+                                                  if (i == 0 && xs.Where(x2 => x1 - BOARD_ELLIPSE_INTERVAL <= x2 && x2 <= x1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                  {
+                                                      res.Add(new BoardLine
+                                                      {
+                                                          X1 = x1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                          X2 = x1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                          Y1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          Y2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          Dots = Enumerable.Range(0, 5)
+                                                                           .Select(ix => new BoardDot { X = x1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
+                                                                           .ToHashSet(),
+                                                      });
+                                                  }
+
+                                                  if (xs.Where(x2 => x1 <= x2 && x2 <= x1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                  {
+                                                      res.Add(new BoardLine
+                                                      {
+                                                          X1 = x1 + ELLIPSE_WIDTH / 2,
+                                                          X2 = x1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                          Y1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          Y2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                          Dots = Enumerable.Range(0, 5)
+                                                                           .Select(ix => new BoardDot { X = x1 + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
+                                                                           .ToHashSet(),
+                                                      });
+                                                  }
+                                              }
+
+                                              return res;
+                                          })
+                                          .Distinct());
+
+                // TODO: Rank lines, order by y and x? good if it has adjacent dot to other line?
+                return candidates;
+
+
+                //var candidates = verticalLines.SelectMany(l =>
+                //{
+                //    var newDots1 = Enumerable.Range(0, 5)
+                //                             .Select(i => new BoardDot { X = l.X1, Y = Math.Max(l.Y1, l.Y2) + BOARD_ELLIPSE_INTERVAL * i })
+                //                             .ToList();
+
+                //    var line1 = new BoardLine
+                //    {
+                //        X1 = l.X1,
+                //        X2 = l.X2,
+                //        Y1 = newDots1.First().Y,
+                //        Y2 = newDots1.Last().Y,
+                //        Dots = newDots1.ToHashSet(),
+                //    };
+
+                //    var newDots2 = Enumerable.Range(0, 5)
+                //                             .Select(i => new BoardDot { X = l.X1, Y = Math.Max(l.Y1, l.Y2) + BOARD_ELLIPSE_INTERVAL * -i })
+                //                             .ToList();
+
+                //    var line2 = new BoardLine
+                //    {
+                //        X1 = l.X1,
+                //        X2 = l.X2,
+                //        Y1 = newDots2.First().Y,
+                //        Y2 = newDots2.Last().Y,
+                //        Dots = newDots2.ToHashSet(),
+                //    };
+
+                //    return new[] { line1, line2 };
+                //})
+                //.ToList();
+
+                //candidates = candidates
+                //             .Where(x => x.Dots.Intersect(BoardDots).Count() == 4 && verticalLines.All(vl => vl.InsideDots.Intersect(x.InsideDots).Count() == 0))
+                //             .ToList();
+
+
+            }
+              
+            return [];
+        }
+
         #region Init board
         private static readonly List<(int a, int b)> _boardInitDots = new[]
-{
+        {
             (0, 3),
             (0, 4),
             (0, 5),

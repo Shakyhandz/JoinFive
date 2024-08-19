@@ -7,6 +7,11 @@
         public float X2 { get; set; }
         public float Y2 { get; set; }
         public HashSet<BoardDot> Dots { get; set; } = [];
+        public BoardLineType LineType => X1 == X2 ? BoardLineType.Vertical : 
+                                         Y1 == Y2 ? BoardLineType.Horizontal : 
+                                                    BoardLineType.Diagonal;
+        public HashSet<BoardDot> InsideDots => Dots.Where(d => !((d.X == X1 && d.Y == Y1) || (d.X == X2 && d.Y == Y2)))
+                                                   .ToHashSet();
 
         public bool Equals(BoardLine? other)
         {

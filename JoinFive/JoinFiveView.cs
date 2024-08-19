@@ -85,6 +85,29 @@ namespace JoinFive
             Invalidate();
         }
 
+        private HashSet<BoardLine> _alreadySuggested = new();
+
+        public void SuggestLine()
+        {
+            if (drawable != null && !drawable.IsDrawing)
+            {
+                var suggestedLines = drawable.SuggestNextLine();
+                var suggestedLine = suggestedLines.FirstOrDefault(l => !_alreadySuggested.Contains(l));
+
+                if (suggestedLine != null)
+                {
+                    _alreadySuggested.Add(suggestedLine);
+                    drawable.SuggestedLine = suggestedLine;
+                    Invalidate();
+                }
+                else
+                {
+                    _alreadySuggested = new();
+                    drawable.ErrorMessage = "No more lines to suggest";
+                }
+            }
+        }
+
         private void JoinFiveView_EndInteraction(object? sender, TouchEventArgs e)
         {
             if (drawable.StartPoint.Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL && e.Touches[0].Y >= GraphicsDrawable.BOARD_ELLIPSE_INTERVAL)
