@@ -285,7 +285,7 @@ namespace JoinFive
         public List<BoardLine> SuggestNextLine()
         {
             // Find dots with 4 neighbors, where 0 or 1 has a gap of two 
-            if (/*BoardLines?.Count > 0 &&*/ BoardDots?.Count > 0)
+            if (BoardDots?.Count > 0)
             {
                 //LineType.Vertical
                 var verticalLines = BoardLines?.Where(x => x.LineType == BoardLineType.Vertical).ToList() ?? [];
@@ -324,16 +324,21 @@ namespace JoinFive
 
                                                   if (ys.Where(y2 => y1 <= y2 && y2 <= y1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
                                                   {
-                                                      res.Add(new BoardLine
-                                                      {
-                                                          X1 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          X2 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          Y1 = y1 + ELLIPSE_WIDTH / 2,
-                                                          Y2 = y1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                          Dots = Enumerable.Range(0, 5)
+                                                      var dots = Enumerable.Range(0, 5)
                                                                            .Select(ix => new BoardDot { X = x.Key, Y = y1 + BOARD_ELLIPSE_INTERVAL * ix })
-                                                                           .ToHashSet(),
-                                                      });
+                                                                           .ToHashSet();
+
+                                                      if (dots.Intersect(insideDots).Count() == 0)
+                                                      {
+                                                          res.Add(new BoardLine
+                                                          {
+                                                              X1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                              X2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                              Y1 = y1 + ELLIPSE_WIDTH / 2,
+                                                              Y2 = y1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                              Dots = dots,
+                                                          });
+                                                      }
                                                   }
                                               }
 
@@ -378,16 +383,21 @@ namespace JoinFive
                                              
                                                      if (xs.Where(x2 => x1 <= x2 && x2 <= x1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
                                                      {
-                                                         res.Add(new BoardLine
-                                                         {
-                                                             X1 = x1 + ELLIPSE_WIDTH / 2,
-                                                             X2 = x1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                             Y1 = x.Key + ELLIPSE_WIDTH / 2,
-                                                             Y2 = x.Key + ELLIPSE_WIDTH / 2,
-                                                             Dots = Enumerable.Range(0, 5)
+                                                         var dots = Enumerable.Range(0, 5)
                                                                               .Select(ix => new BoardDot { X = x1 + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
-                                                                              .ToHashSet(),
-                                                         });
+                                                                              .ToHashSet();
+
+                                                         if (dots.Intersect(insideDots).Count() == 0)
+                                                         {
+                                                             res.Add(new BoardLine
+                                                             {
+                                                                 X1 = x1 + ELLIPSE_WIDTH / 2,
+                                                                 X2 = x1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Y1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                                 Y2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                                 Dots = dots,
+                                                             });
+                                                         }
                                                      }
                                                  }
                                              
@@ -440,20 +450,25 @@ namespace JoinFive
                                                                           xy1.Y <= xy2.Y && xy2.Y <= xy1.Y + BOARD_ELLIPSE_INTERVAL * 4)
                                                             .Count() == 4)
                                                      {
-                                                         res.Add(new BoardLine
-                                                         {
-                                                             X1 = xy1.X + ELLIPSE_WIDTH / 2,
-                                                             X2 = xy1.X + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                             Y1 = xy1.Y + ELLIPSE_WIDTH / 2,
-                                                             Y2 = xy1.Y + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                             Dots = Enumerable.Range(0, 5)
+                                                         var dots = Enumerable.Range(0, 5)
                                                                               .Select(ix => new BoardDot
                                                                               {
                                                                                   X = xy1.X + BOARD_ELLIPSE_INTERVAL * ix,
                                                                                   Y = xy1.Y + BOARD_ELLIPSE_INTERVAL * ix,
                                                                               })
-                                                                              .ToHashSet(),
-                                                         });
+                                                                              .ToHashSet();
+
+                                                         if (dots.Intersect(insideDots).Count() == 0)
+                                                         {
+                                                             res.Add(new BoardLine
+                                                             {
+                                                                 X1 = xy1.X + ELLIPSE_WIDTH / 2,
+                                                                 X2 = xy1.X + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Y1 = xy1.Y + ELLIPSE_WIDTH / 2,
+                                                                 Y2 = xy1.Y + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Dots = dots,
+                                                             });
+                                                         }
                                                      }
                                                  }
                                              
@@ -506,20 +521,25 @@ namespace JoinFive
                                                                           xy1.Y + BOARD_ELLIPSE_INTERVAL * -4 <= xy2.Y && xy2.Y <= xy1.Y)
                                                             .Count() == 4)
                                                      {
-                                                         res.Add(new BoardLine
-                                                         {
-                                                             X1 = xy1.X + ELLIPSE_WIDTH / 2,
-                                                             X2 = xy1.X + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                             Y1 = xy1.Y + ELLIPSE_WIDTH / 2,
-                                                             Y2 = xy1.Y + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * -4,
-                                                             Dots = Enumerable.Range(0, 5)
+                                                         var dots = Enumerable.Range(0, 5)
                                                                               .Select(ix => new BoardDot
                                                                               {
                                                                                   X = xy1.X + BOARD_ELLIPSE_INTERVAL * ix,
                                                                                   Y = xy1.Y + BOARD_ELLIPSE_INTERVAL * -ix,
                                                                               })
-                                                                              .ToHashSet(),
-                                                         });
+                                                                              .ToHashSet();
+
+                                                         if (dots.Intersect(insideDots).Count() == 0)
+                                                         {
+                                                             res.Add(new BoardLine
+                                                             {
+                                                                 X1 = xy1.X + ELLIPSE_WIDTH / 2,
+                                                                 X2 = xy1.X + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Y1 = xy1.Y + ELLIPSE_WIDTH / 2,
+                                                                 Y2 = xy1.Y + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * -4,
+                                                                 Dots = dots,
+                                                             });
+                                                         }
                                                      }
                                                  }
 
@@ -528,7 +548,9 @@ namespace JoinFive
                                              .Distinct());
 
                 // TODO: Rank lines, order by y and x? good if it has adjacent dot to other line?
-                return candidates;
+                return candidates.OrderBy(x => Math.Min(x.Y1, x.Y2))
+                                 .ThenBy(x => Math.Min(x.X1, x.X2))
+                                 .ToList();
             }
               
             return [];
