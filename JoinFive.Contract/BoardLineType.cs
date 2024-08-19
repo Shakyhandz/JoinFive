@@ -4,6 +4,7 @@
     {
         Vertical,
         Horizontal,
-        Diagonal,
+        DiagonalUp,
+        DiagonalDown,
     }
 }

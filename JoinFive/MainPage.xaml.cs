@@ -9,8 +9,6 @@
 
         private void JoinFiveView_StartInteraction(object sender, TouchEventArgs e)
         {
-            errorMessageTextBox.Text = "";
-
             if (sender is JoinFiveView view && e.Touches?.Count() > 0)
             {
                 var point = e.Touches[0];
@@ -33,16 +31,6 @@
                 }
             }
         }
-
-        private async void JoinFiveView_EndInteraction(object sender, TouchEventArgs e)
-        {
-            if (sender is JoinFiveView view && view.Drawable is GraphicsDrawable drawable)
-            {
-                await Task.Delay(250);
-                errorMessageTextBox.Text = drawable.ErrorMessage;
-            }
-        }
-
     }
 }
 

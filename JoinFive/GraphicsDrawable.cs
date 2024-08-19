@@ -11,6 +11,7 @@ namespace JoinFive
         public const float BOARD_MARGIN = 120;
         public const float BOARD_ELLIPSE_INTERVAL = 24;
 
+        // Must be even number
         public const float ELLIPSE_WIDTH = 12;
         public const float UNCOMMITED_LINE_STROKE_THICKNESS = 8;
         public const float COMMITED_LINE_STROKE_THICKNESS = 4;
@@ -32,8 +33,9 @@ namespace JoinFive
         public PointF StartPoint { get; set; }
         public List<PointF> DragPoints { get; set; } = new List<PointF>();
         public bool IsDrawing { get; set; }
-        private BoardLine? _lastLine = null;
+        public BoardLine? LastLine { get; set; } = null;
         public BoardLine? SuggestedLine { get; set; }
+        public HashSet<BoardLine> AlreadySuggested { get; set; } = new ();
 
         public string ErrorMessage { get; set; } = "";
         public int Score { get; set; }
@@ -41,21 +43,23 @@ namespace JoinFive
 
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
-            ErrorMessage = "";
+            //ErrorMessage = "";
 
             // Draw background 
             canvas.FillColor = Colors.CornflowerBlue;
             canvas.FillRectangle(dirtyRect);
 
             // Check if last line is valid
-            if (!IsDrawing && _lastLine != null)
+            if (!IsDrawing && LastLine != null)
             {
                 // If ok, add to lines
-                if (SetAndValidateLine(canvas, _lastLine))
+                if (SetAndValidateLine(canvas, LastLine))
                 {
-                    BoardLines.Add(_lastLine);
-                    LastCommittedLine = _lastLine;
-                    _lastLine = null;
+                    ErrorMessage = "";
+                    BoardLines.Add(LastLine);
+                    LastCommittedLine = LastLine;
+                    LastLine = null;
+                    AlreadySuggested = new();
                 }
             }
 
@@ -76,12 +80,12 @@ namespace JoinFive
             }
 
             Score = BoardLines.Count;
-            DrawButtons(canvas);
+            DrawButtons(canvas, dirtyRect);
 
             // Draw temp line while dragging
             if (DragPoints?.Count > 0)
             {
-                _lastLine = new BoardLine
+                LastLine = new BoardLine
                 {
                     X1 = StartPoint.X,
                     Y1 = StartPoint.Y,
@@ -89,25 +93,35 @@ namespace JoinFive
                     Y2 = DragPoints.Last().Y,
                 };
 
-                DrawLine(canvas, _lastLine);
+                DrawLine(canvas, LastLine);
+                ErrorMessage = "";
             }
             else if (SuggestedLine != null)
             {
                 DrawLine(canvas, SuggestedLine, Colors.White);
                 SuggestedLine = null;
+                ErrorMessage = "";
             }
         }
 
-        private void DrawButtons(ICanvas canvas)
+        private void DrawButtons(ICanvas canvas, RectF dirtyRect)
         {
             canvas.Font = new Microsoft.Maui.Graphics.Font("Arial");
             canvas.FontSize = 12;
+            
             canvas.FontColor = Colors.Black;
             canvas.DrawString("UNDO", BOARD_ELLIPSE_INTERVAL, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
             canvas.DrawString("CLEAR", BOARD_ELLIPSE_INTERVAL + 60 * 1, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
             canvas.DrawString("SUGGEST", BOARD_ELLIPSE_INTERVAL + 60 * 2, 0, 80, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
             canvas.DrawString($"YOUR SCORE: {Score}", BOARD_ELLIPSE_INTERVAL + 60 * 3.5F, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
             canvas.DrawString($"HIGH SCORE: {HiScore}", BOARD_ELLIPSE_INTERVAL + 60 * 5.5F, 0, 120, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);
+
+            canvas.FontColor = Colors.Red;
+            var errorMsg = string.IsNullOrEmpty(ErrorMessage?.Trim()) 
+                           ? ""
+                           : $"ERROR: {ErrorMessage}";
+
+            canvas.DrawString(errorMsg, BOARD_ELLIPSE_INTERVAL, dirtyRect.Bottom - ELLIPSE_WIDTH - BOARD_ELLIPSE_INTERVAL, dirtyRect.Right - BOARD_ELLIPSE_INTERVAL, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);            
         }
 
         public static void DrawLine(ICanvas canvas, BoardLine? line, Color? color = null)
@@ -275,8 +289,9 @@ namespace JoinFive
             {
                 //LineType.Vertical
                 var verticalLines = BoardLines?.Where(x => x.LineType == BoardLineType.Vertical).ToList() ?? [];
+                var insideDots = verticalLines.SelectMany(x => x.InsideDots(ELLIPSE_WIDTH / 2)).ToHashSet();
 
-                var candidates = BoardDots.Where(d => !verticalLines.Any(l => l.InsideDots.Contains(d)))
+                var candidates = BoardDots.Where(d => !insideDots.Contains(d))
                                           .GroupBy(x => x.X)
                                           .SelectMany(x =>
                                           {
@@ -288,18 +303,23 @@ namespace JoinFive
                                               {
                                                   var y1 = ys[i];
 
-                                                  if (i == 0 && ys.Where(y2 => y1 - BOARD_ELLIPSE_INTERVAL <= y2 && y2 <= y1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                  if (ys.Where(y2 => y1 - BOARD_ELLIPSE_INTERVAL <= y2 && y2 <= y1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
                                                   {
-                                                      res.Add(new BoardLine
-                                                      {
-                                                          X1 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          X2 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          Y1 = y1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
-                                                          Y2 = y1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                          Dots = Enumerable.Range(0, 5)
+                                                      var dots = Enumerable.Range(0, 5)
                                                                            .Select(ix => new BoardDot { X = x.Key, Y = y1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix })
-                                                                           .ToHashSet(),
-                                                      });
+                                                                           .ToHashSet();
+
+                                                      if (dots.Intersect(insideDots).Count() == 0)
+                                                      {
+                                                          res.Add(new BoardLine
+                                                          {
+                                                              X1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                              X2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                              Y1 = y1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                              Y2 = y1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                              Dots = dots,
+                                                          });
+                                                      }
                                                   }
 
                                                   if (ys.Where(y2 => y1 <= y2 && y2 <= y1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
@@ -323,93 +343,192 @@ namespace JoinFive
 
                 //LineType.Horizontal
                 var horizontalLines = BoardLines?.Where(x => x.LineType == BoardLineType.Horizontal).ToList() ?? [];
+                insideDots = horizontalLines.SelectMany(x => x.InsideDots(ELLIPSE_WIDTH / 2)).ToHashSet();
 
-                candidates.AddRange(BoardDots.Where(d => !horizontalLines.Any(l => l.InsideDots.Contains(d)))
-                                          .GroupBy(x => x.Y)
-                                          .SelectMany(x =>
-                                          {
-                                              var res = new List<BoardLine>();
+                candidates.AddRange(BoardDots.Where(d => !insideDots.Contains(d))
+                                             .GroupBy(x => x.Y)
+                                             .SelectMany(x =>
+                                             {
+                                                 var res = new List<BoardLine>();
+                                             
+                                                 var xs = x.Select(y => y.X).Distinct().OrderBy(y => y).ToList();
+                                             
+                                                 for (var i = 0; i < xs.Count; i++)
+                                                 {
+                                                     var x1 = xs[i];
+                                             
+                                                     if (xs.Where(x2 => x1 - BOARD_ELLIPSE_INTERVAL <= x2 && x2 <= x1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                     {
+                                                         var dots = Enumerable.Range(0, 5)
+                                                                              .Select(ix => new BoardDot { X = x1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
+                                                                              .ToHashSet();
 
-                                              var xs = x.Select(y => y.X).Distinct().OrderBy(y => y).ToList();
+                                                         if (dots.Intersect(insideDots).Count() == 0)
+                                                         {
+                                                             res.Add(new BoardLine
+                                                             {
+                                                                 X1 = x1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                                 X2 = x1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Y1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                                 Y2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                                 Dots = dots,
+                                                             });
+                                                         }
+                                                     }
+                                             
+                                                     if (xs.Where(x2 => x1 <= x2 && x2 <= x1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
+                                                     {
+                                                         res.Add(new BoardLine
+                                                         {
+                                                             X1 = x1 + ELLIPSE_WIDTH / 2,
+                                                             X2 = x1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                             Y1 = x.Key + ELLIPSE_WIDTH / 2,
+                                                             Y2 = x.Key + ELLIPSE_WIDTH / 2,
+                                                             Dots = Enumerable.Range(0, 5)
+                                                                              .Select(ix => new BoardDot { X = x1 + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
+                                                                              .ToHashSet(),
+                                                         });
+                                                     }
+                                                 }
+                                             
+                                                 return res;
+                                             })
+                                             .Distinct());
 
-                                              for (var i = 0; i < xs.Count; i++)
-                                              {
-                                                  var x1 = xs[i];
+                //LineType.DiagonalDown
+                var diagonalDownLines = BoardLines?.Where(x => x.LineType == BoardLineType.DiagonalDown).ToList() ?? [];
+                insideDots = diagonalDownLines.SelectMany(x => x.InsideDots(ELLIPSE_WIDTH / 2)).ToHashSet();
 
-                                                  if (i == 0 && xs.Where(x2 => x1 - BOARD_ELLIPSE_INTERVAL <= x2 && x2 <= x1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
-                                                  {
-                                                      res.Add(new BoardLine
-                                                      {
-                                                          X1 = x1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
-                                                          X2 = x1 - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                          Y1 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          Y2 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          Dots = Enumerable.Range(0, 5)
-                                                                           .Select(ix => new BoardDot { X = x1 - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
-                                                                           .ToHashSet(),
-                                                      });
-                                                  }
+                candidates.AddRange(BoardDots.Where(d => !insideDots.Contains(d))
+                                             .GroupBy(x => x.GroupParam(BoardLineType.DiagonalDown))
+                                             .SelectMany(x =>
+                                             {
+                                                 var res = new List<BoardLine>();
+                                             
+                                                 var xys = x.Select(y => (y.X, y.Y)).Distinct().OrderBy(y => y.X).ToList();
+                                             
+                                                 for (var i = 0; i < xys.Count; i++)
+                                                 {
+                                                     var xy1 = xys[i];
+                                             
+                                                     if (xys.Where(xy2 => xy1.X - BOARD_ELLIPSE_INTERVAL <= xy2.X && xy2.X <= xy1.X - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4 &&
+                                                                                    xy1.Y - BOARD_ELLIPSE_INTERVAL <= xy2.Y && xy2.Y <= xy1.Y - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4)
+                                                                      .Count() == 4)
+                                                     {
+                                                         var dots = Enumerable.Range(0, 5)
+                                                                              .Select(ix => new BoardDot
+                                                                              {
+                                                                                  X = xy1.X - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix,
+                                                                                  Y = xy1.Y - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix,
+                                                                              })
+                                                                              .ToHashSet();
 
-                                                  if (xs.Where(x2 => x1 <= x2 && x2 <= x1 + BOARD_ELLIPSE_INTERVAL * 4).Count() == 4)
-                                                  {
-                                                      res.Add(new BoardLine
-                                                      {
-                                                          X1 = x1 + ELLIPSE_WIDTH / 2,
-                                                          X2 = x1 + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
-                                                          Y1 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          Y2 = x.Key + ELLIPSE_WIDTH / 2,
-                                                          Dots = Enumerable.Range(0, 5)
-                                                                           .Select(ix => new BoardDot { X = x1 + BOARD_ELLIPSE_INTERVAL * ix, Y = x.Key })
-                                                                           .ToHashSet(),
-                                                      });
-                                                  }
-                                              }
+                                                         if (dots.Intersect(insideDots).Count() == 0)
+                                                         {
+                                                             res.Add(new BoardLine
+                                                             {
+                                                                 X1 = xy1.X - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                                 X2 = xy1.X - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Y1 = xy1.Y - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                                 Y2 = xy1.Y - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Dots = dots,
+                                                             });
+                                                         }
+                                                     }
 
-                                              return res;
-                                          })
-                                          .Distinct());
+                                                     if (xys.Where(xy2 => xy1.X <= xy2.X && xy2.X <= xy1.X + BOARD_ELLIPSE_INTERVAL * 4 &&
+                                                                          xy1.Y <= xy2.Y && xy2.Y <= xy1.Y + BOARD_ELLIPSE_INTERVAL * 4)
+                                                            .Count() == 4)
+                                                     {
+                                                         res.Add(new BoardLine
+                                                         {
+                                                             X1 = xy1.X + ELLIPSE_WIDTH / 2,
+                                                             X2 = xy1.X + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                             Y1 = xy1.Y + ELLIPSE_WIDTH / 2,
+                                                             Y2 = xy1.Y + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                             Dots = Enumerable.Range(0, 5)
+                                                                              .Select(ix => new BoardDot
+                                                                              {
+                                                                                  X = xy1.X + BOARD_ELLIPSE_INTERVAL * ix,
+                                                                                  Y = xy1.Y + BOARD_ELLIPSE_INTERVAL * ix,
+                                                                              })
+                                                                              .ToHashSet(),
+                                                         });
+                                                     }
+                                                 }
+                                             
+                                                 return res;
+                                             })
+                                             .Distinct());
+
+                //LineType.DiagonalUp
+                var diagonalUpLines = BoardLines?.Where(x => x.LineType == BoardLineType.DiagonalUp).ToList() ?? [];
+                insideDots = diagonalUpLines.SelectMany(x => x.InsideDots(ELLIPSE_WIDTH / 2)).ToHashSet();
+
+                candidates.AddRange(BoardDots.Where(d => !insideDots.Contains(d))
+                                             .GroupBy(x => x.GroupParam(BoardLineType.DiagonalUp))
+                                             .SelectMany(x =>
+                                             {
+                                                 var res = new List<BoardLine>();
+
+                                                 var xys = x.Select(y => (y.X, y.Y)).Distinct().OrderBy(y => y.X).ToList();
+
+                                                 for (var i = 0; i < xys.Count; i++)
+                                                 {
+                                                     var xy1 = xys[i];
+
+                                                     if (xys.Where(xy2 => xy1.X - BOARD_ELLIPSE_INTERVAL <= xy2.X && xy2.X <= xy1.X - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * 4 &&
+                                                                          xy1.Y + BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * -4 <= xy2.Y && xy2.Y <= xy1.Y + BOARD_ELLIPSE_INTERVAL)
+                                                                      .Count() == 4)
+                                                     {
+                                                         var dots = Enumerable.Range(0, 5)
+                                                                              .Select(ix => new BoardDot
+                                                                              {
+                                                                                  X = xy1.X - BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * ix,
+                                                                                  Y = xy1.Y + BOARD_ELLIPSE_INTERVAL + BOARD_ELLIPSE_INTERVAL * -ix,
+                                                                              })
+                                                                              .ToHashSet();
+
+                                                         if (dots.Intersect(insideDots).Count() == 0)
+                                                         {
+                                                             res.Add(new BoardLine
+                                                             {
+                                                                 X1 = xy1.X - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                                 X2 = xy1.X - BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                                 Y1 = xy1.Y + BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2,
+                                                                 Y2 = xy1.Y + BOARD_ELLIPSE_INTERVAL + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * -4,
+                                                                 Dots = dots,
+                                                             });
+                                                         }
+                                                     }
+
+                                                     if (xys.Where(xy2 => xy1.X <= xy2.X && xy2.X <= xy1.X + BOARD_ELLIPSE_INTERVAL * 4 &&
+                                                                          xy1.Y + BOARD_ELLIPSE_INTERVAL * -4 <= xy2.Y && xy2.Y <= xy1.Y)
+                                                            .Count() == 4)
+                                                     {
+                                                         res.Add(new BoardLine
+                                                         {
+                                                             X1 = xy1.X + ELLIPSE_WIDTH / 2,
+                                                             X2 = xy1.X + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * 4,
+                                                             Y1 = xy1.Y + ELLIPSE_WIDTH / 2,
+                                                             Y2 = xy1.Y + ELLIPSE_WIDTH / 2 + BOARD_ELLIPSE_INTERVAL * -4,
+                                                             Dots = Enumerable.Range(0, 5)
+                                                                              .Select(ix => new BoardDot
+                                                                              {
+                                                                                  X = xy1.X + BOARD_ELLIPSE_INTERVAL * ix,
+                                                                                  Y = xy1.Y + BOARD_ELLIPSE_INTERVAL * -ix,
+                                                                              })
+                                                                              .ToHashSet(),
+                                                         });
+                                                     }
+                                                 }
+
+                                                 return res;
+                                             })
+                                             .Distinct());
 
                 // TODO: Rank lines, order by y and x? good if it has adjacent dot to other line?
                 return candidates;
-
-
-                //var candidates = verticalLines.SelectMany(l =>
-                //{
-                //    var newDots1 = Enumerable.Range(0, 5)
-                //                             .Select(i => new BoardDot { X = l.X1, Y = Math.Max(l.Y1, l.Y2) + BOARD_ELLIPSE_INTERVAL * i })
-                //                             .ToList();
-
-                //    var line1 = new BoardLine
-                //    {
-                //        X1 = l.X1,
-                //        X2 = l.X2,
-                //        Y1 = newDots1.First().Y,
-                //        Y2 = newDots1.Last().Y,
-                //        Dots = newDots1.ToHashSet(),
-                //    };
-
-                //    var newDots2 = Enumerable.Range(0, 5)
-                //                             .Select(i => new BoardDot { X = l.X1, Y = Math.Max(l.Y1, l.Y2) + BOARD_ELLIPSE_INTERVAL * -i })
-                //                             .ToList();
-
-                //    var line2 = new BoardLine
-                //    {
-                //        X1 = l.X1,
-                //        X2 = l.X2,
-                //        Y1 = newDots2.First().Y,
-                //        Y2 = newDots2.Last().Y,
-                //        Dots = newDots2.ToHashSet(),
-                //    };
-
-                //    return new[] { line1, line2 };
-                //})
-                //.ToList();
-
-                //candidates = candidates
-                //             .Where(x => x.Dots.Intersect(BoardDots).Count() == 4 && verticalLines.All(vl => vl.InsideDots.Intersect(x.InsideDots).Count() == 0))
-                //             .ToList();
-
-
             }
               
             return [];
@@ -442,9 +561,9 @@ namespace JoinFive
 
         private void DrawEmptyDots(ICanvas canvas, RectF dirtyRect)
         {
-            for (var x = dirtyRect.Left + BOARD_ELLIPSE_INTERVAL; x < dirtyRect.Right - ELLIPSE_WIDTH; x += BOARD_ELLIPSE_INTERVAL)
+            for (var x = dirtyRect.Left + BOARD_ELLIPSE_INTERVAL; x < dirtyRect.Right - ELLIPSE_WIDTH - BOARD_ELLIPSE_INTERVAL; x += BOARD_ELLIPSE_INTERVAL)
             {
-                for (var y = dirtyRect.Top + BOARD_ELLIPSE_INTERVAL; y < dirtyRect.Bottom - ELLIPSE_WIDTH; y += BOARD_ELLIPSE_INTERVAL)
+                for (var y = dirtyRect.Top + BOARD_ELLIPSE_INTERVAL; y < dirtyRect.Bottom - ELLIPSE_WIDTH - BOARD_ELLIPSE_INTERVAL; y += BOARD_ELLIPSE_INTERVAL)
                 {
                     DrawDot(canvas, new BoardDot { X = x, Y = y, IsInitialDot = true }, Colors.LightGray);
                 }

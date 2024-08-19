@@ -56,6 +56,8 @@ namespace JoinFive
 
         public void Undo()
         {
+            drawable.LastLine = null;
+
             if (drawable.LastCommittedDot != null &&
                 !drawable.LastCommittedDot.IsInitialDot &&
                 drawable.LastCommittedLine != null)
@@ -65,12 +67,13 @@ namespace JoinFive
 
                 drawable.LastCommittedDot = null;
                 drawable.LastCommittedLine = null;
-
+                
                 Invalidate();
             }
             else
             {
                 drawable.ErrorMessage = "Nothing to undo";
+                Invalidate();
             }
         }
 
@@ -85,25 +88,32 @@ namespace JoinFive
             Invalidate();
         }
 
-        private HashSet<BoardLine> _alreadySuggested = new();
-
         public void SuggestLine()
         {
             if (drawable != null && !drawable.IsDrawing)
             {
+                drawable.LastLine = null;
+
                 var suggestedLines = drawable.SuggestNextLine();
-                var suggestedLine = suggestedLines.FirstOrDefault(l => !_alreadySuggested.Contains(l));
+                var suggestedLine = suggestedLines.FirstOrDefault(l => !drawable.AlreadySuggested.Contains(l));
 
                 if (suggestedLine != null)
                 {
-                    _alreadySuggested.Add(suggestedLine);
+                    drawable.AlreadySuggested.Add(suggestedLine);
                     drawable.SuggestedLine = suggestedLine;
                     Invalidate();
                 }
                 else
                 {
-                    _alreadySuggested = new();
-                    drawable.ErrorMessage = "No more lines to suggest";
+                    
+                    drawable.ErrorMessage = drawable.AlreadySuggested.Any()
+                                            ? "No more lines to suggest"
+                                            : "There are no lines to suggest";
+
+                    drawable.AlreadySuggested = new();
+                    drawable.SuggestedLine = null;
+
+                    Invalidate();
                 }
             }
         }

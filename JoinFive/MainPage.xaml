@@ -6,11 +6,8 @@
              x:Class="JoinFive.MainPage"
              BackgroundColor="{DynamicResource PageBackgroundColor}">
     <VerticalStackLayout>
-        <local:JoinFiveView HeightRequest="610" WidthRequest="464" StartInteraction="JoinFiveView_StartInteraction" EndInteraction="JoinFiveView_EndInteraction" />
-
-        <VerticalStackLayout Margin="0, 4" WidthRequest="464" Background="CornflowerBlue">
-            <Label x:Name="errorMessageTextBox" Text="" Margin="4,2" TextColor="Red" />
-        </VerticalStackLayout>
-
+        <local:JoinFiveView HeightRequest="610" 
+                            WidthRequest="464" 
+                            StartInteraction="JoinFiveView_StartInteraction" />
     </VerticalStackLayout>
 </ContentPage>

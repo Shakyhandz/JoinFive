@@ -6,6 +6,11 @@
         public float Y { get; set; }
         public bool IsInitialDot { get; set; }
 
+        public float GroupParam(BoardLineType boardLineType) => boardLineType == BoardLineType.Vertical ? X :
+                                                                boardLineType == BoardLineType.Horizontal ? Y :
+                                                                boardLineType == BoardLineType.DiagonalDown ? X - Y :
+                                                                X + Y;
+
         public bool Equals(BoardDot? other)
         {
             // Check whether the compared object is null.

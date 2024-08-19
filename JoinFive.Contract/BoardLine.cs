@@ -9,9 +9,10 @@
         public HashSet<BoardDot> Dots { get; set; } = [];
         public BoardLineType LineType => X1 == X2 ? BoardLineType.Vertical : 
                                          Y1 == Y2 ? BoardLineType.Horizontal : 
-                                                    BoardLineType.Diagonal;
-        public HashSet<BoardDot> InsideDots => Dots.Where(d => !((d.X == X1 && d.Y == Y1) || (d.X == X2 && d.Y == Y2)))
-                                                   .ToHashSet();
+                                         (X2 > X1 && Y2 > Y1) || (X2 < X1 && Y2 < Y1) ? BoardLineType.DiagonalDown : 
+                                         BoardLineType.DiagonalUp;
+        public HashSet<BoardDot> InsideDots(float halfEllipseWidth) => Dots.Where(d => !((d.X == X1 - halfEllipseWidth && d.Y == Y1 - halfEllipseWidth) || (d.X == X2 - halfEllipseWidth && d.Y == Y2 - halfEllipseWidth)))
+                                                                           .ToHashSet();
 
         public bool Equals(BoardLine? other)
         {
