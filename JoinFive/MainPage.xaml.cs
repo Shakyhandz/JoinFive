@@ -7,7 +7,7 @@
             InitializeComponent();
         }
 
-        private void JoinFiveView_StartInteraction(object sender, TouchEventArgs e)
+        private async void JoinFiveView_StartInteraction(object sender, TouchEventArgs e)
         {
             if (sender is JoinFiveView view && e.Touches?.Count() > 0)
             {
@@ -22,7 +22,7 @@
                     }
                     else if (80 <= point.X && point.X <= 125)
                     {
-                        view.Clear();
+                        await view.Clear();
                     }
                     else if (145 <= point.X && point.X <= 200)
                     {

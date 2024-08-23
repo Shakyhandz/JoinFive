@@ -7,8 +7,8 @@ namespace JoinFive
     {
         #region Consts
 
-        public const float BOARD_MARGIN_TOP = 192;
-        public const float BOARD_MARGIN = 120;
+        public const float BOARD_MARGIN_TOP = 216;
+        public const float BOARD_MARGIN = 216;
         public const float BOARD_ELLIPSE_INTERVAL = 24;
 
         // Must be even number
@@ -40,6 +40,7 @@ namespace JoinFive
         public string ErrorMessage { get; set; } = "";
         public int Score { get; set; }
         public int HiScore { get; set; }
+        public int Id { get; set; }
 
         public void Draw(ICanvas canvas, RectF dirtyRect)
         {
@@ -121,7 +122,7 @@ namespace JoinFive
                            ? ""
                            : $"ERROR: {ErrorMessage}";
 
-            canvas.DrawString(errorMsg, BOARD_ELLIPSE_INTERVAL, dirtyRect.Bottom - ELLIPSE_WIDTH - BOARD_ELLIPSE_INTERVAL, dirtyRect.Right - BOARD_ELLIPSE_INTERVAL, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);            
+            canvas.DrawString(errorMsg, BOARD_ELLIPSE_INTERVAL, dirtyRect.Bottom - BOARD_ELLIPSE_INTERVAL, dirtyRect.Right - BOARD_ELLIPSE_INTERVAL, BOARD_ELLIPSE_INTERVAL, HorizontalAlignment.Left, VerticalAlignment.Center);            
         }
 
         public static void DrawLine(ICanvas canvas, BoardLine? line, Color? color = null)

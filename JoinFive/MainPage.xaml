@@ -4,10 +4,11 @@
              xmlns:local="clr-namespace:JoinFive"
              xmlns:shared="clr-namespace:JoinFive.Shared;assembly=JoinFive.Shared"
              x:Class="JoinFive.MainPage"
+             MaximumWidthRequest="662"
              BackgroundColor="{DynamicResource PageBackgroundColor}">
     <VerticalStackLayout>
-        <local:JoinFiveView HeightRequest="610" 
-                            WidthRequest="464" 
+        <local:JoinFiveView HeightRequest="662" 
+                            WidthRequest="662" 
                             StartInteraction="JoinFiveView_StartInteraction" />
     </VerticalStackLayout>
 </ContentPage>

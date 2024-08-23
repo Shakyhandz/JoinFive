@@ -7,7 +7,7 @@ namespace JoinFive
 
     public class JoinFiveView : GraphicsView
     {
-        GraphicsDrawable drawable;        
+        GraphicsDrawable drawable;
         private static readonly string SETTINGS_PATH = Path.Combine(FileSystem.AppDataDirectory, "settings.json");
 
         public JoinFiveView()
@@ -18,6 +18,7 @@ namespace JoinFive
 
             if (settings != null)
             {
+                drawable.Id = settings.GameId;
                 drawable.HiScore = settings.HiScore;
                 drawable.BoardLines = settings.CurrentLines;
                 drawable.BoardDots = settings.CurrentDots;
@@ -44,47 +45,128 @@ namespace JoinFive
             // Small delay for rendering to complete for accurate data
             await Task.Delay(250);
 
-            var settings = new Settings
-            {
-                HiScore = drawable?.HiScore ?? 0,
-                CurrentLines = drawable?.BoardLines ?? [], 
-                CurrentDots = drawable?.BoardDots ?? [],
-            };
+            var settings = ReadSettings() ?? new Settings();
 
-            File.WriteAllText(SETTINGS_PATH, JsonSerializer.Serialize(settings));
+            if (drawable != null)
+            {                
+                settings.GameId = drawable.Id;
+                settings.HiScore = drawable.HiScore;
+                settings.CurrentLines = drawable.BoardLines;
+                settings.CurrentDots = drawable.BoardDots;
+
+                // NOTE: High score settings are saved separately
+                File.WriteAllText(SETTINGS_PATH, JsonSerializer.Serialize(settings));
+            }
+        }
+
+        public async Task SaveScreenshot()
+        {
+            try
+            {
+                if (drawable != null && Screenshot.Default.IsCaptureSupported)
+                {
+                    var filePath = Path.Combine(FileSystem.AppDataDirectory, $"high_score_{drawable.Id}.png");
+
+                    if (!File.Exists(filePath))
+                    {
+                        var screen = await Screenshot.Default.CaptureAsync();
+                        var stream = await screen.OpenReadAsync();
+
+                        using FileStream localFile = File.OpenWrite(filePath);
+                        await stream.CopyToAsync(localFile);
+                        localFile.Close();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine(ex.Message);
+            }   
+        }
+
+        
+
+        private async Task SaveHighScoreSettings()
+        {
+            // Small delay for rendering to complete for accurate data
+            await Task.Delay(250);
+
+            var settings = ReadSettings() ?? new Settings();
+
+            if (drawable != null)
+            {
+                var tmp = settings.HiScoreSettings.Where(x => x.HiScore >= drawable.Score).ToList();
+
+                var newHiScore = new HiScoreSettings
+                {
+                    GameId = drawable.Id,
+                    Timestamp = DateTime.Now,
+                    HiScore = drawable.Score,
+                    CurrentLines = drawable.BoardLines,
+                    CurrentDots = drawable.BoardDots
+                };
+
+                tmp.Add(newHiScore);
+
+                settings.HiScoreSettings = tmp;
+                settings.HiScore = drawable.Score;
+
+                File.WriteAllText(SETTINGS_PATH, JsonSerializer.Serialize(settings));
+
+                await SaveScreenshot();
+            }
         }
 
         public void Undo()
         {
-            drawable.LastLine = null;
-
-            if (drawable.LastCommittedDot != null &&
-                !drawable.LastCommittedDot.IsInitialDot &&
-                drawable.LastCommittedLine != null)
+            if (drawable != null)
             {
-                drawable.BoardDots.Remove(drawable.LastCommittedDot);
-                drawable.BoardLines.Remove(drawable.LastCommittedLine);
+                drawable.ErrorMessage = "";
+                drawable.LastLine = null;
+                drawable.SuggestedLine = null;
 
-                drawable.LastCommittedDot = null;
-                drawable.LastCommittedLine = null;
-                
-                Invalidate();
-            }
-            else
-            {
-                drawable.ErrorMessage = "Nothing to undo";
-                Invalidate();
+                if (drawable.LastCommittedDot != null &&
+                    !drawable.LastCommittedDot.IsInitialDot &&
+                    drawable.LastCommittedLine != null)
+                {
+                    drawable.BoardDots.Remove(drawable.LastCommittedDot);
+                    drawable.BoardLines.Remove(drawable.LastCommittedLine);
+
+                    drawable.LastCommittedDot = null;
+                    drawable.LastCommittedLine = null;
+
+                    Invalidate();
+                }
+                else
+                {
+                    drawable.ErrorMessage = "Nothing to undo";
+                    Invalidate();
+                }
             }
         }
 
-        public void Clear()
+        public async Task Clear()
         {
+            // Save high score settings first            
+            if (drawable.Score >= drawable.HiScore)
+            {
+                await SaveHighScoreSettings();
+            }
+
+            // Remember from drawable before resetting
             var highScore = Math.Max(drawable.Score, drawable.HiScore);
-            
+            var gameId = drawable.Id + 1;
+
+            // Reset
             drawable = new GraphicsDrawable();
             Drawable = drawable;
+            drawable.Id = gameId;
             drawable.HiScore = highScore;
-            SaveSettings();
+
+            // Save the new game settings
+            await SaveSettings();
+            
+            // Draw the new board
             Invalidate();
         }
 
@@ -92,6 +174,7 @@ namespace JoinFive
         {
             if (drawable != null && !drawable.IsDrawing)
             {
+                drawable.ErrorMessage = "";
                 drawable.LastLine = null;
 
                 var suggestedLines = drawable.SuggestNextLine();
@@ -105,7 +188,6 @@ namespace JoinFive
                 }
                 else
                 {
-                    
                     drawable.ErrorMessage = drawable.AlreadySuggested.Any()
                                             ? "No more lines to suggest"
                                             : "There are no lines to suggest";
